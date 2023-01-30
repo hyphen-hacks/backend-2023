@@ -1,0 +1,26 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "build/index.js",
+  "prisma": {
+    "schema": "./src/prisma/schema.prisma"
+  },
+  "scripts": {
+    "start": "tsc && node . ",
+    "dev": "tsc && node --trace-warnings . dev ",
+    "format": "prettier . --write",
+    "generate": "prisma generate"
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.18",
+    "prettier": "^2.8.3",
+    "prisma": "^4.9.0",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "@prisma/client": "^4.9.0",
+    "dotenv": "^16.0.3",
+    "fastify": "^4.12.0",
+    "moment": "^2.29.4"
+  }
+}
