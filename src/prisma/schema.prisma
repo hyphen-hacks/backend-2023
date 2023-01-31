@@ -11,14 +11,14 @@ datasource db {
 }
 
 model ParticipantApplication {
-  email               String  @id @map("_id")
+  email               String   @id @map("_id")
   firstName           String
   lastName            String
   pronouns            String
-  phoneNumber         String
-  birthDate           String
+  phoneNumber         Int
+  birthDate           DateTime
   school              String
-  gradYear            String
+  gradYear            Int
   wantTeam            Boolean
   hasTeam             Boolean
   teamMembers         String

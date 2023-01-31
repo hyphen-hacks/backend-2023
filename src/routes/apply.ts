@@ -1,34 +1,8 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
-import moment from 'moment';
+import { z } from 'zod';
 import Server from '../classes/Server';
 
-const validator = {
-  text(text?: string, optional = false) {
-    return !!text?.length || optional;
-  },
-  email(email: string) {
-    let emailRegex =
-      /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-    return emailRegex.test(String(email).toLowerCase());
-  },
-  date(date: string) {
-    return (
-      moment(date, 'MM/DD/YYYY').isValid() ||
-      moment(date, 'YYYY-MM-DD').isValid()
-    );
-  },
-  year(year: string) {
-    const numberYear = Number(year);
-    return numberYear > 2021 && numberYear < 2040;
-  },
-  bool(bool: boolean, mustAgree = false) {
-    return typeof bool === 'boolean' || (mustAgree && bool === true)
-      ? true
-      : false;
-  },
-};
-
-type attendeeApplication = {
+type AttendeeApplication = {
   firstName: string;
   lastName: string;
   email: string;
@@ -56,62 +30,57 @@ export const handleAttendeeApplication = async (
   if (!req.body || typeof req.body !== 'object')
     return res.status(400).send({ error: 'invalidApplicationBody' });
 
-  const appBody = req.body as attendeeApplication;
+  const appBody = req.body as AttendeeApplication;
 
-  // Validate
-  if (!validator.text(appBody.firstName))
-    return res.status(400).send({ error: 'invalidFirstName' });
-  if (!validator.text(appBody.lastName))
-    return res.status(400).send({ error: 'invalidLastName' });
-  if (!validator.email(appBody.email))
-    return res.status(400).send({ error: 'invalidEmail' });
-  if (!validator.text(appBody.pronouns))
-    return res.status(400).send({ error: 'invalidPronouns' });
-  if (!validator.text(appBody.phoneNumber))
-    return res.status(400).send({ error: 'invalidPhoneNumber' });
-  if (!validator.date(appBody.birthDate))
-    return res.status(400).send({ error: 'invalidBirthDate' });
-  if (!validator.text(appBody.school))
-    return res.status(400).send({ error: 'invalidSchool' });
-  if (!validator.year(appBody.gradYear))
-    return res.status(400).send({ error: 'invalidGradYear' });
-  if (!validator.bool(appBody.wantTeam))
-    return res.status(400).send({ error: 'invalidWantTeam' });
-  if (!validator.bool(appBody.hasTeam))
-    return res.status(400).send({ error: 'invalidHasTeam' });
-  if (!validator.text(appBody.teamMembers, true))
-    return res.status(400).send({ error: 'invalidTeamMembers' });
-  if (!validator.bool(appBody.hasCodingExperience))
-    return res.status(400).send({ error: 'invalidCodingExperience' });
-  if (!validator.bool(appBody.participatedBefore))
-    return res.status(400).send({ error: 'invalidParticipatedBefore' });
-  if (!validator.text(appBody.shirtSize))
-    return res.status(400).send({ error: 'invalidShirtSize' });
-  if (!validator.text(appBody.allergies, true))
-    return res.status(400).send({ error: 'invalidAllergies' });
-  if (!validator.text(appBody.comments, true))
-    return res.status(400).send({ error: 'invalidComments' });
-  if (!validator.bool(appBody.understandApplication, true))
-    return res.status(400).send({ error: 'invalidUnderstandApplication' });
-
-  await server.database.createParticipantApplication({
-    firstName: appBody.firstName,
-    lastName: appBody.lastName,
-    email: appBody.email,
-    pronouns: appBody.pronouns,
-    phoneNumber: appBody.phoneNumber,
-    birthDate: appBody.birthDate,
-    school: appBody.school,
-    gradYear: appBody.gradYear,
-    wantTeam: appBody.wantTeam,
-    hasTeam: appBody.hasTeam,
-    teamMembers: appBody.teamMembers,
-    hasCodingExperience: appBody.hasCodingExperience,
-    participatedBefore: appBody.participatedBefore,
-    shirtSize: appBody.shirtSize,
-    allergies: appBody.allergies,
-    comments: appBody.comments,
+  const AttendeeApplicationValidator = z.object({
+    firstName: z.string(),
+    lastName: z.string(),
+    email: z.string().email({ message: 'The email you provided is invalid.' }),
+    pronouns: z.string(),
+    phoneNumber: z.coerce
+      .number({
+        invalid_type_error:
+          'Invalid phone number. Make sure it only contains numbers! No "+" or "-".',
+      })
+      .int(),
+    birthDate: z.coerce.date(),
+    school: z.string(),
+    gradYear: z.coerce
+      .number()
+      .int()
+      .gte(2023, {
+        message:
+          'You must be a current high school student to participate. Check your graduation year!',
+      })
+      .lte(2026, {
+        message:
+          'You must be a current high school student to participate. Check your graduation year!',
+      }),
+    wantTeam: z.boolean(),
+    hasTeam: z.boolean(),
+    teamMembers: z.string(),
+    hasCodingExperience: z.boolean(),
+    participatedBefore: z.boolean(),
+    shirtSize: z.enum(['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL']),
+    allergies: z.string(),
+    comments: z.string(),
   });
+
+  const validatedApplication = AttendeeApplicationValidator.safeParse(appBody);
+  if (!validatedApplication.success) {
+    const error = `${validatedApplication.error.errors[0].path[0]} - ${validatedApplication.error.errors[0].message}`;
+    return res.status(400).send({ error });
+  }
+
+  // Add participant application to database
+  const createApplication = await server.database
+    .createParticipantApplication(validatedApplication.data)
+    .catch(console.error);
+
+  if (!createApplication)
+    return res
+      .status(500)
+      .send({ error: 'Failed to create application. Did you already apply?' });
 
   return res.send({ message: 'createdApplication' });
 };
