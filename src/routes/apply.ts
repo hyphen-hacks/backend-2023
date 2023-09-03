@@ -48,11 +48,11 @@ export const handleAttendeeApplication = async (
     gradYear: z.coerce
       .number()
       .int()
-      .gte(2023, {
+      .gte(2024, {
         message:
           'You must be a current high school student to participate. Check your graduation year!',
       })
-      .lte(2026, {
+      .lte(2027, {
         message:
           'You must be a current high school student to participate. Check your graduation year!',
       }),
